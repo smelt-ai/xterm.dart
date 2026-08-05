@@ -93,4 +93,26 @@ void main() {
       expect(terminal.buffer.lines[i].length, 13);
     }
   });
+
+  group('reflow after the scrollback ring has rotated', () {
+    test('a resize keeps the current screen, not trimmed scrollback', () {
+      final terminal = Terminal(maxLines: 100);
+      terminal.resize(40, 10);
+
+      for (var i = 0; i < 60; i++) {
+        terminal.write('old line $i\r\n');
+      }
+
+      // Clearing the scrollback trims the front of the ring, which rotates it.
+      // TUIs emit this on a full repaint.
+      terminal.write('\x1b[3J');
+      terminal.write('\x1b[H\x1b[2Jcurrent content\r\n');
+
+      // A width change reflows, which rebuilds the ring through replaceWith.
+      terminal.resize(38, 10);
+
+      expect(terminal.buffer.getText(), contains('current content'));
+      expect(terminal.buffer.getText(), isNot(contains('old line 0')));
+    });
+  });
 }

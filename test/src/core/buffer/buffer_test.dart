@@ -244,4 +244,61 @@ void main() {
       expect(terminal.buffer.lines[2].toString(), '');
     });
   });
+
+  group('scrolling keeps line ownership intact', () {
+    /// Every line the buffer still holds has to remain attached to it; a
+    /// detached line makes the next [insert] fail its `attached` assertion and
+    /// dereference a null owner once assertions are compiled out.
+    int detachedLines(Terminal terminal) {
+      final lines = terminal.buffer.lines;
+      var detached = 0;
+      for (var i = 0; i < lines.length; i++) {
+        if (!lines[i].attached) detached++;
+      }
+      return detached;
+    }
+
+    test('a scroll region does not detach the lines it moves', () {
+      final terminal = Terminal(maxLines: 400);
+      terminal.resize(40, 40);
+      for (var i = 0; i < 200; i++) {
+        terminal.write('row $i\r\n');
+      }
+
+      // Scroll a region whose top margin is not the top of the screen, which
+      // is the branch of Buffer.index that scrolls the region directly.
+      terminal.write('\x1b[5;40r\x1b[40;1H');
+      terminal.write('\n' * 10);
+
+      expect(detachedLines(terminal), 0);
+    });
+
+    test('a later line feed survives an earlier scroll region', () {
+      final terminal = Terminal(maxLines: 400);
+      terminal.resize(40, 40);
+      for (var i = 0; i < 200; i++) {
+        terminal.write('row $i\r\n');
+      }
+      terminal.write('\x1b[5;40r\x1b[40;1H');
+      terminal.write('\n' * 10);
+
+      // A region with a zero top margin takes the branch that inserts, which
+      // shifts the lines a detached line would be sitting among.
+      terminal.write('\x1b[1;11r\x1b[11;1H');
+      expect(() => terminal.write('\n' * 10), returnsNormally);
+      expect(detachedLines(terminal), 0);
+    });
+
+    test('deleting lines does not detach the lines it shifts up', () {
+      final terminal = Terminal(maxLines: 400);
+      terminal.resize(40, 40);
+      for (var i = 0; i < 200; i++) {
+        terminal.write('row $i\r\n');
+      }
+
+      terminal.write('\x1b[5;1H\x1b[3M');
+
+      expect(detachedLines(terminal), 0);
+    });
+  });
 }

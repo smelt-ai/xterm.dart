@@ -208,7 +208,11 @@ class Buffer {
   void scrollDown(int lines) {
     for (var i = absoluteMarginBottom; i >= absoluteMarginTop; i--) {
       if (i >= absoluteMarginTop + lines) {
-        this.lines[i] = this.lines[i - lines];
+        // Vacate the source slot as the line leaves it, so the line is only
+        // ever referenced from the slot that now owns it. Assigning it
+        // directly would leave it in both, and the iteration that later
+        // overwrites the source would detach the line it had already moved.
+        this.lines[i] = this.lines.swap(i - lines, _newEmptyLine());
       } else {
         this.lines[i] = _newEmptyLine();
       }
@@ -218,7 +222,7 @@ class Buffer {
   void scrollUp(int lines) {
     for (var i = absoluteMarginTop; i <= absoluteMarginBottom; i++) {
       if (i <= absoluteMarginBottom - lines) {
-        this.lines[i] = this.lines[i + lines];
+        this.lines[i] = this.lines.swap(i + lines, _newEmptyLine());
       } else {
         this.lines[i] = _newEmptyLine();
       }
@@ -426,7 +430,7 @@ class Buffer {
 
     for (var i = 0; i < linesToMove; i++) {
       final index = absoluteCursorY + i;
-      lines[index] = lines[index + count];
+      lines[index] = lines.swap(index + count, _newEmptyLine());
     }
 
     for (var i = 0; i < count; i++) {

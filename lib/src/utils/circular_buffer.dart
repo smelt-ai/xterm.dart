@@ -231,6 +231,8 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
 
   /// Replaces all elements in the list with [replacement].
   void replaceWith(List<T> replacement) {
+    // Dropping resolves through the rotation the outgoing elements were
+    // stored at, so it has to happen before the rotation is reset.
     for (var i = 0; i < _length; i++) {
       _dropChild(i);
     }
@@ -240,16 +242,17 @@ class IndexAwareCircularBuffer<T extends IndexedItem> {
       copyStart = replacement.length - maxLength;
     }
 
-    for (var i = 0; i < copyStart; i++) {
-      _dropChild(i);
-    }
+    // The replacement is laid out from the start of the backing array, so the
+    // rotation has to be reset before adopting. Adopting first would store
+    // every element `_startIndex` slots away from the index it is later read
+    // back at, which silently returns unrelated elements.
+    _startIndex = 0;
 
     final copyLength = replacement.length - copyStart;
     for (var i = 0; i < copyLength; i++) {
       _adoptChild(i, replacement[copyStart + i]);
     }
 
-    _startIndex = 0;
     _length = copyLength;
   }
 
