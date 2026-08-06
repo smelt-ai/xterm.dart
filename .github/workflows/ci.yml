@@ -21,8 +21,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
+      # Infos are not fatal: current Flutter reports deprecations in code this
+      # fork does not touch, and failing on them would bury the signal that
+      # matters. Warnings and errors still fail the job.
       - name: Analyze project source
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       # The regression tests for the defects this fork exists to fix are part
       # of this suite. If a merge from upstream makes one of them redundant,
