@@ -5,6 +5,7 @@ on:
     branches: [smelt, master]
   pull_request:
     branches: [smelt]
+  workflow_dispatch:
 
 jobs:
   test:
