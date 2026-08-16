@@ -41,4 +41,12 @@ abstract class TerminalState {
   bool get altBufferMouseScrollMode;
 
   bool get bracketedPasteMode;
+
+  /// The flags at the top of the kitty keyboard protocol stack, or 0 when no
+  /// application has asked for it. Bit 1 is `DISAMBIGUATE`, under which a key
+  /// that has an ambiguous legacy encoding must be reported as `CSI u`
+  /// instead — the legacy form is suppressed, so sending it reaches nothing.
+  ///
+  /// https://sw.kovidgoyal.net/kitty/keyboard-protocol/
+  int get keyboardFlags;
 }

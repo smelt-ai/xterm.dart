@@ -35,7 +35,10 @@ key Backtab     -Ansi  : "\t"
 key Return-Shift-NewLine : "\r"
 key Return-Shift+NewLine : "\r\n"
 
-key Return+Shift         : "\EOM"
+# Shift+Return reports LF rather than the application keypad's \EOM, which
+# means nothing to the applications that want a newline here. See the Enter
+# entries below, which are the ones Flutter's Return key actually reaches.
+key Return+Shift         : "\n"
 
 key Backspace  +Alt : "\x17"
 
@@ -141,8 +144,18 @@ key Clear       +KeyPad : "\E[E"
 
 # other grey PC keys
 
-key Enter+NewLine : "\r\n"
-key Enter-NewLine : "\r"
+# Flutter's main Return key arrives as Enter, so these entries are the ones a
+# hardware keyboard actually reaches — the Return ones above are unreachable
+# through that path.
+#
+# Shift+Enter reports LF. Without the kitty keyboard protocol a terminal
+# cannot tell Shift+Enter from Enter — both are \r — so an application that
+# wants "Enter submits, Shift+Enter inserts a newline" has to read something
+# else for the second one, and LF is what the terminals those applications are
+# written against send.
+key Enter+Shift   : "\n"
+key Enter-Shift+NewLine : "\r\n"
+key Enter-Shift-NewLine : "\r"
 
 key NumEnter+NewLine : "\r\n"
 key NumEnter-NewLine : "\r"

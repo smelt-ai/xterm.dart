@@ -24,6 +24,22 @@
 >   declared as `64 + 4` and `64 + 5`; bits 2 and 3 are the shift and meta
 >   modifiers, so every tick went out as a modified click and strict
 >   applications ignored it. They now carry their X11 numbers, 64 through 67.
+> - **The kitty keyboard protocol is understood.** `CSI > flags u`,
+>   `CSI < n u` and `CSI = flags ; mode u` are parsed and tracked on a stack,
+>   and with the disambiguate flag set the keys a legacy encoding cannot tell
+>   apart are reported as `CSI unicode ; modifiers u`. Applications that ask
+>   for the protocol - Claude Code does, from v2.1 - stop reading the legacy
+>   sequences once they have asked, so without this a terminal that keeps
+>   sending them is one the application hears nothing from. Shift+Tab is the
+>   visible case: `CSI Z` goes unread and the key does nothing at all.
+> - **The arrow keys follow DECCKM.** The keytab was consulted with
+>   `appKeypadMode` where it wanted `cursorKeysMode`, so an application that
+>   set only DECCKM - the usual case - never saw `SS3 A`, and one that set only
+>   DECKPAM saw it when it should not have.
+> - **Shift+Enter reports LF.** It was indistinguishable from Enter, since the
+>   `Enter` keytab entries carry no Shift variant and the `Return` ones Flutter
+>   never reaches. LF is what the terminals that applications wanting
+>   "Enter submits, Shift+Enter inserts a newline" are written against send.
 > - The discontinued `dart_code_metrics` analyzer plugin is dropped, since it
 >   no longer resolves on a supported SDK and blocked running the test suite.
 >

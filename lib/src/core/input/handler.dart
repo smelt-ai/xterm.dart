@@ -89,6 +89,80 @@ class CascadeInputHandler implements TerminalInputHandler {
   }
 }
 
+/// A [TerminalInputHandler] that reports keys through the kitty keyboard
+/// protocol while an application has it enabled.
+///
+/// Under the `DISAMBIGUATE` flag the terminal must report a key that has an
+/// ambiguous legacy encoding as `CSI unicode-key-code ; modifiers u`, and the
+/// legacy form is suppressed. So an application that asked for the protocol —
+/// Claude Code does, from v2.1 — hears nothing when it is sent `ESC [ Z` for
+/// Shift+Tab. This handler runs ahead of the keytab so those keys take the
+/// CSI u form, and declines everything else so the legacy path still owns
+/// unmodified keys, which the protocol leaves alone.
+class KittyInputHandler implements TerminalInputHandler {
+  const KittyInputHandler();
+
+  /// `DISAMBIGUATE`, the only flag whose reporting this handler implements.
+  static const disambiguate = 1;
+
+  /// The protocol's own key codes for keys that are not a unicode code point.
+  static const _functionalKeyCodes = {
+    TerminalKey.arrowUp: 1,
+    TerminalKey.arrowDown: 2,
+    TerminalKey.arrowLeft: 3,
+    TerminalKey.arrowRight: 4,
+    TerminalKey.tab: 9,
+    TerminalKey.home: 11,
+    TerminalKey.end: 12,
+    TerminalKey.pageUp: 13,
+    TerminalKey.pageDown: 14,
+    TerminalKey.insert: 15,
+    TerminalKey.delete: 16,
+    TerminalKey.f1: 17,
+    TerminalKey.f2: 18,
+    TerminalKey.f3: 19,
+    TerminalKey.f4: 20,
+    TerminalKey.f5: 21,
+    TerminalKey.f6: 22,
+    TerminalKey.f7: 23,
+    TerminalKey.f8: 24,
+    TerminalKey.f9: 25,
+    TerminalKey.f10: 26,
+    TerminalKey.f11: 27,
+    TerminalKey.f12: 28,
+    TerminalKey.enter: 13,
+    TerminalKey.escape: 27,
+    TerminalKey.backspace: 127,
+  };
+
+  /// `CSI u` numbers the modifiers from 1, one bit each.
+  static int encodeModifiers(TerminalKeyboardEvent event) =>
+      1 + (event.shift ? 1 : 0) + (event.alt ? 2 : 0) + (event.ctrl ? 4 : 0);
+
+  @override
+  String? call(TerminalKeyboardEvent event) {
+    if (event.state.keyboardFlags & disambiguate == 0) {
+      return null;
+    }
+
+    final modifiers = encodeModifiers(event);
+    if (modifiers == 1) {
+      // An unmodified key keeps its legacy encoding under this flag.
+      return null;
+    }
+
+    // Ctrl with a plain letter stays a C0 control code: readline and friends
+    // read 0x03 as interrupt, and reporting it as CSI u would break them. The
+    // protocol only asks for the ambiguous cases, and this one is not.
+    final code = _functionalKeyCodes[event.key];
+    if (code == null) {
+      return null;
+    }
+
+    return '\x1b[$code;${modifiers}u';
+  }
+}
+
 /// The default input handler for the terminal. That is composed of a
 /// [KeytabInputHandler], a [CtrlInputHandler], and a [AltInputHandler].
 ///
@@ -99,6 +173,7 @@ class CascadeInputHandler implements TerminalInputHandler {
 /// See also:
 ///  * [CascadeInputHandler]
 const defaultInputHandler = CascadeInputHandler([
+  KittyInputHandler(),
   KeytabInputHandler(),
   CtrlInputHandler(),
   AltInputHandler(),
@@ -121,7 +196,7 @@ class KeytabInputHandler implements TerminalInputHandler {
       alt: event.alt,
       shift: event.shift,
       newLineMode: event.state.lineFeedMode,
-      appCursorKeys: event.state.appKeypadMode,
+      appCursorKeys: event.state.cursorKeysMode,
       appKeyPad: event.state.appKeypadMode,
       appScreen: event.altBuffer,
       macos: event.platform == TerminalTargetPlatform.macos,

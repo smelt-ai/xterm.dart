@@ -147,6 +147,11 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
 
   bool _bracketedPasteMode = false;
 
+  /// The kitty keyboard protocol mode stack. Applications push their flags on
+  /// entry and pop them on exit, so a nested one leaving must not take the
+  /// outer one's mode down with it.
+  final _keyboardFlagStack = <int>[];
+
   /* State getters */
 
   /// Number of cells in a terminal row.
@@ -201,6 +206,10 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
 
   @override
   bool get bracketedPasteMode => _bracketedPasteMode;
+
+  @override
+  int get keyboardFlags =>
+      _keyboardFlagStack.isEmpty ? 0 : _keyboardFlagStack.last;
 
   /// Current active buffer of the terminal. This is initially [mainBuffer] and
   /// can be switched back and forth from [altBuffer] to [mainBuffer] when
@@ -649,6 +658,46 @@ class Terminal with Observable implements TerminalState, EscapeHandler {
   @override
   void unknownCSI(int finalByte) {
     // no-op
+  }
+
+  /* Kitty keyboard protocol */
+
+  /// A stack this deep never occurs in practice; the cap is only so a stream
+  /// that pushes without ever popping cannot grow without bound.
+  static const _maxKeyboardFlagStackDepth = 32;
+
+  @override
+  void pushKeyboardFlags(int flags) {
+    if (_keyboardFlagStack.length >= _maxKeyboardFlagStackDepth) {
+      _keyboardFlagStack.removeAt(0);
+    }
+    _keyboardFlagStack.add(flags);
+  }
+
+  @override
+  void popKeyboardFlags(int number) {
+    for (var i = 0; i < number && _keyboardFlagStack.isNotEmpty; i++) {
+      _keyboardFlagStack.removeLast();
+    }
+  }
+
+  @override
+  void setKeyboardFlags(int flags, int mode) {
+    if (_keyboardFlagStack.isEmpty) {
+      // Setting with nothing pushed still has to take effect, otherwise an
+      // application that only ever uses `CSI = ... u` would never be heard.
+      // Mode 3 is a clear, and clearing an empty stack is already the state.
+      if (mode != 3) {
+        _keyboardFlagStack.add(flags);
+      }
+      return;
+    }
+    final current = _keyboardFlagStack.last;
+    _keyboardFlagStack[_keyboardFlagStack.length - 1] = switch (mode) {
+      2 => current | flags,
+      3 => current & ~flags,
+      _ => flags,
+    };
   }
 
   /* Modes */

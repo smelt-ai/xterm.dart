@@ -280,6 +280,7 @@ class EscapeParser {
     'n'.codeUnitAt(0): _csiHandleDeviceStatusReport,
     'r'.codeUnitAt(0): _csiHandleSetMargins,
     't'.codeUnitAt(0): _csiWindowManipulation,
+    'u'.codeUnitAt(0): _csiHandleKittyKeyboard,
     'A'.codeUnitAt(0): _csiHandleCursorUp,
     'B'.codeUnitAt(0): _csiHandleCursorDown,
     'C'.codeUnitAt(0): _csiHandleCursorForward,
@@ -651,6 +652,42 @@ class EscapeParser {
     }
 
     handler.setMargins(top - 1, bottom);
+  }
+
+  /// `ESC [ > flags u` / `ESC [ < number u` / `ESC [ = flags ; mode u`
+  ///
+  /// The kitty keyboard protocol. Applications push a set of flags to ask for
+  /// unambiguous key reporting and pop it back on exit. Only the stack is
+  /// tracked here; what the flags mean for encoding is the input handler's
+  /// business.
+  ///
+  /// https://sw.kovidgoyal.net/kitty/keyboard-protocol/
+  void _csiHandleKittyKeyboard() {
+    switch (_csi.prefix) {
+      case Ascii.greaterThan:
+        // kitty defaults the flags to 1 when the parameter is omitted.
+        handler.pushKeyboardFlags(
+          _csi.params.isEmpty ? 1 : _csi.params.first,
+        );
+      case Ascii.lessThan:
+        handler.popKeyboardFlags(
+          _csi.params.isEmpty ? 1 : _csi.params.first,
+        );
+      case Ascii.equal:
+        if (_csi.params.isEmpty) {
+          return;
+        }
+        handler.setKeyboardFlags(
+          _csi.params.first,
+          _csi.params.length > 1 ? _csi.params[1] : 1,
+        );
+      // `CSI ? u` queries the current flags. Answering it would mean writing
+      // to the host, which this parser has no channel for, and an application
+      // that gets no answer falls back to the legacy encoding — which is what
+      // it would get anyway. So it is left alone rather than half-answered.
+      default:
+        handler.unknownCSI(_csi.finalByte);
+    }
   }
 
   /// `ESC [ Ps t` Window operations [DISPATCH]

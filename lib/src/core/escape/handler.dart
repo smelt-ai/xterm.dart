@@ -103,6 +103,18 @@ abstract class EscapeHandler {
 
   void unknownCSI(int finalByte);
 
+  /* Kitty keyboard protocol */
+
+  /// `CSI > flags u` — push [flags] onto the keyboard mode stack.
+  void pushKeyboardFlags(int flags);
+
+  /// `CSI < number u` — pop [number] entries off the keyboard mode stack.
+  void popKeyboardFlags(int number);
+
+  /// `CSI = flags ; mode u` — apply [flags] to the top of the stack, where
+  /// mode 1 sets, 2 sets the given bits and 3 clears them.
+  void setKeyboardFlags(int flags, int mode);
+
   /* Modes */
 
   void setInsertMode(bool enabled);

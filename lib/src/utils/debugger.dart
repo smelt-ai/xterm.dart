@@ -186,6 +186,21 @@ class _TerminalDebuggerHandler implements EscapeHandler {
   }
 
   @override
+  void pushKeyboardFlags(int flags) {
+    onCommand('pushKeyboardFlags($flags)');
+  }
+
+  @override
+  void popKeyboardFlags(int number) {
+    onCommand('popKeyboardFlags($number)');
+  }
+
+  @override
+  void setKeyboardFlags(int flags, int mode) {
+    onCommand('setKeyboardFlags($flags, $mode)');
+  }
+
+  @override
   void setCursor(int x, int y) {
     onCommand('setCursor($x, $y)');
   }
