@@ -221,6 +221,9 @@ class CustomTextEditState extends State<CustomTextEdit> with TextInputClient {
 
     widget.onComposing(null);
 
+    final afterNewlineAction = _newlineActionPending;
+    _newlineActionPending = false;
+
     if (_currentEditingState.text.length < _initEditingState.text.length) {
       widget.onDelete();
     } else {
@@ -228,7 +231,9 @@ class CustomTextEditState extends State<CustomTextEdit> with TextInputClient {
         _initEditingState.text.length,
       );
 
-      widget.onInsert(textDelta);
+      if (!(afterNewlineAction && _isNewline(textDelta))) {
+        widget.onInsert(textDelta);
+      }
     }
 
     // Reset editing state if composing is done
@@ -238,9 +243,29 @@ class CustomTextEditState extends State<CustomTextEdit> with TextInputClient {
     }
   }
 
+  /// Set when the platform reports the return key as an action, and cleared by
+  /// the next editing update.
+  ///
+  /// iOS reports that key twice: `FlutterTextInputPlugin` sends the newline
+  /// action and then returns YES, which lets the "\n" through into the editing
+  /// value - the newline action is the one action it does not suppress the
+  /// insertion for. A client acting on both sees the key twice, which in a
+  /// terminal submits the line and then leaves a stray LF in the next prompt.
+  ///
+  /// The action always arrives first, since the engine sends it while deciding
+  /// whether to accept the edit, so a newline insert directly behind one is
+  /// that same key press. Dropping only that one keeps the Android keyboards
+  /// that commit the newline as text and never report an action working.
+  var _newlineActionPending = false;
+
+  static bool _isNewline(String text) =>
+      text == '\n' || text == '\r' || text == '\r\n';
+
   @override
   void performAction(TextInputAction action) {
     // print('performAction $action');
+    _newlineActionPending =
+        action == TextInputAction.newline || action == TextInputAction.done;
     widget.onAction(action);
   }
 

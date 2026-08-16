@@ -40,6 +40,15 @@
 >   `Enter` keytab entries carry no Shift variant and the `Return` ones Flutter
 >   never reaches. LF is what the terminals that applications wanting
 >   "Enter submits, Shift+Enter inserts a newline" are written against send.
+> - **The software keyboard's return key is sent once.** iOS reports it twice:
+>   `FlutterTextInputPlugin` sends the newline action and then returns YES,
+>   letting the `"\n"` through into the editing value as well - the newline
+>   action is the one action whose insertion it does not suppress. Acting on
+>   both submits the line and then leaves a stray LF in the next prompt. The
+>   action always arrives first, so a newline insert directly behind one is
+>   dropped as the same key press; the Android keyboards that only commit the
+>   newline as text and never report an action still work, and now report it as
+>   the enter key rather than a raw LF.
 > - The discontinued `dart_code_metrics` analyzer plugin is dropped, since it
 >   no longer resolves on a supported SDK and blocked running the test suite.
 >

@@ -368,6 +368,16 @@ class TerminalViewState extends State<TerminalView> {
   }
 
   void _onInsert(String text) {
+    // A newline on its own is the return key: some Android keyboards commit it
+    // as text rather than reporting the action. The terminal wants what the
+    // enter key sends, which is CR - and honours the line feed mode - not a
+    // raw LF.
+    if (text == '\n' || text == '\r' || text == '\r\n') {
+      widget.terminal.keyInput(TerminalKey.enter);
+      _scrollToBottom();
+      return;
+    }
+
     final key = charToTerminalKey(text.trim());
 
     // On mobile platforms there is no guarantee that virtual keyboard will
