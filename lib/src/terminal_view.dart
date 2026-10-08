@@ -35,6 +35,7 @@ class TerminalView extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.onTapUp,
+    this.claimTap,
     this.onSecondaryTapDown,
     this.onSecondaryTapUp,
     this.mouseCursor = SystemMouseCursors.text,
@@ -86,6 +87,18 @@ class TerminalView extends StatefulWidget {
 
   /// Callback for when the user taps on the terminal.
   final void Function(TapUpDetails, CellOffset)? onTapUp;
+
+  /// Lets the host take a primary tap for itself, such as a hyperlink under
+  /// the finger. Called when the tap goes down with the cell under it; return
+  /// the action to run if the tap completes, or null to leave the tap to the
+  /// view.
+  ///
+  /// A claimed tap is the host's alone: it is not reported to the application
+  /// as a mouse event, does not focus the terminal or raise the keyboard, does
+  /// not clear the selection, and [onTapUp] is not called for it. The action
+  /// runs only for a completed single tap; a tap that turns into a long press
+  /// or the second tap of a double tap does not run it.
+  final VoidCallback? Function(CellOffset offset)? claimTap;
 
   /// Function called when the user taps on the terminal with a secondary
   /// button.

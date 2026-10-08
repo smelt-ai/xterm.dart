@@ -88,6 +88,7 @@ class _TerminalGestureDetectorState extends State<TerminalGestureDetector> {
       _doubleTapTimer = Timer(kDoubleTapTimeout, _doubleTapTimeout);
     }
     _isDoubleTap = false;
+    widget.onTapUp?.call(details);
   }
 
   void _doubleTapTimeout() {

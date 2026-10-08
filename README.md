@@ -49,6 +49,16 @@
 >   dropped as the same key press; the Android keyboards that only commit the
 >   newline as text and never report an action still work, and now report it as
 >   the enter key rather than a raw LF.
+> - **`TerminalView.onTapUp` is called.** The gesture detector stored the
+>   callback and never invoked it, so a host listening for taps heard nothing.
+> - **A host can claim a tap.** `TerminalView.claimTap` is asked, as a tap goes
+>   down, whether the cell under it is the host's - a hyperlink, say - and
+>   returns the action to run if it is. A claimed tap is not reported to a
+>   mouse-tracking application, does not raise the keyboard or clear the
+>   selection, and runs its action only if it completes as a single tap. Without
+>   it a host can only watch raw pointers next to the view, and by the time it
+>   knows the tap was on a link the view has already raised the keyboard and
+>   sent the application a click.
 > - The discontinued `dart_code_metrics` analyzer plugin is dropped, since it
 >   no longer resolves on a supported SDK and blocked running the test suite.
 >

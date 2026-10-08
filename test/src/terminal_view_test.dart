@@ -240,6 +240,118 @@ void main() {
     });
   });
 
+  group('TerminalView.onTapUp', () {
+    testWidgets('is called with the tapped cell', (tester) async {
+      final terminal = Terminal();
+      final taps = <CellOffset>[];
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: TerminalView(
+            terminal,
+            onTapUp: (_, offset) => taps.add(offset),
+          ),
+        ),
+      ));
+
+      await tester.tapAt(_cellCenter(tester, CellOffset(3, 1)));
+      await tester.pump(kDoubleTapTimeout);
+
+      expect(taps, [CellOffset(3, 1)]);
+    });
+  });
+
+  group('TerminalView.claimTap', () {
+    testWidgets('runs the claimed action instead of the default handling',
+        (tester) async {
+      final output = <String>[];
+      final terminal = Terminal(onOutput: output.add);
+      // The application asked for clicks; a claimed tap must not reach it.
+      terminal.write('\x1b[?1000h');
+      final focusNode = FocusNode();
+      final claimed = <CellOffset>[];
+      final taps = <CellOffset>[];
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: TerminalView(
+            terminal,
+            focusNode: focusNode,
+            hardwareKeyboardOnly: true,
+            onTapUp: (_, offset) => taps.add(offset),
+            claimTap: (offset) =>
+                offset.y == 0 ? () => claimed.add(offset) : null,
+          ),
+        ),
+      ));
+
+      await tester.tapAt(_cellCenter(tester, CellOffset(2, 0)));
+      await tester.pump(kDoubleTapTimeout);
+
+      expect(claimed, [CellOffset(2, 0)]);
+      expect(output, isEmpty);
+      expect(focusNode.hasFocus, isFalse);
+      expect(taps, isEmpty);
+
+      // An unclaimed tap keeps the default behaviour.
+      await tester.tapAt(_cellCenter(tester, CellOffset(2, 2)));
+      await tester.pump(kDoubleTapTimeout);
+
+      expect(claimed, hasLength(1));
+      expect(output, isNotEmpty);
+      expect(taps, [CellOffset(2, 2)]);
+
+      focusNode.dispose();
+    });
+
+    testWidgets('a long press over a claimed cell does not run the action',
+        (tester) async {
+      final terminal = Terminal();
+      terminal.write('hello world');
+      final controller = TerminalController();
+      var claimed = 0;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: TerminalView(
+            terminal,
+            controller: controller,
+            claimTap: (_) => () => claimed++,
+          ),
+        ),
+      ));
+
+      await tester.longPressAt(_cellCenter(tester, CellOffset(1, 0)));
+      await tester.pump(kDoubleTapTimeout);
+
+      expect(claimed, 0);
+      expect(controller.selection, isNotNull);
+    });
+
+    testWidgets('the second tap of a double tap does not run the action again',
+        (tester) async {
+      final terminal = Terminal();
+      var claimed = 0;
+
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: TerminalView(
+            terminal,
+            claimTap: (_) => () => claimed++,
+          ),
+        ),
+      ));
+
+      final position = _cellCenter(tester, CellOffset(1, 0));
+      await tester.tapAt(position);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(position);
+      await tester.pump(kDoubleTapTimeout);
+
+      expect(claimed, 1);
+    });
+  });
+
   group('TerminalView.autofocus', () {
     testWidgets('works', (tester) async {
       final terminal = Terminal();
@@ -449,4 +561,13 @@ void main() {
       expect(terminalOutput.join(), isEmpty);
     });
   });
+}
+
+Offset _cellCenter(WidgetTester tester, CellOffset cell) {
+  final render =
+      tester.state<TerminalViewState>(find.byType(TerminalView)).renderTerminal;
+  final size = render.cellSize;
+  return render.localToGlobal(
+    render.getOffset(cell) + Offset(size.width / 2, size.height / 2),
+  );
 }

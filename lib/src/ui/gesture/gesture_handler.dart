@@ -59,11 +59,16 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
 
   LongPressStartDetails? _lastLongPressStartDetails;
 
+  /// Set when [TerminalView.claimTap] took the tap that is in progress; holds
+  /// the action until the tap completes. Cleared when the tap ends either way.
+  bool _tapClaimed = false;
+  VoidCallback? _claimedAction;
+
   @override
   Widget build(BuildContext context) {
     return TerminalGestureDetector(
       child: widget.child,
-      onTapUp: widget.onTapUp,
+      onTapUp: _onTapUp,
       onSingleTapUp: onSingleTapUp,
       onTapDown: onTapDown,
       onSecondaryTapDown: onSecondaryTapDown,
@@ -126,6 +131,13 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
   }
 
   void onTapDown(TapDownDetails details) {
+    final claim = terminalView.widget.claimTap;
+    _claimedAction = claim?.call(
+      renderTerminal.getCellOffset(details.localPosition),
+    );
+    _tapClaimed = _claimedAction != null;
+    if (_tapClaimed) return;
+
     // onTapDown is special, as it will always call the supplied callback.
     // The TerminalView depends on it to bring the terminal into focus.
     _tapDown(
@@ -137,7 +149,24 @@ class _TerminalGestureHandlerState extends State<TerminalGestureHandler> {
   }
 
   void onSingleTapUp(TapUpDetails details) {
+    if (_tapClaimed) {
+      final action = _claimedAction;
+      _claimedAction = null;
+      action?.call();
+      return;
+    }
     _tapUp(widget.onSingleTapUp, details, TerminalMouseButton.left);
+  }
+
+  // Runs after [onSingleTapUp] for every tap, the second tap of a double tap
+  // included, so it is where a claimed tap is finished.
+  void _onTapUp(TapUpDetails details) {
+    if (_tapClaimed) {
+      _tapClaimed = false;
+      _claimedAction = null;
+      return;
+    }
+    widget.onTapUp?.call(details);
   }
 
   void onSecondaryTapDown(TapDownDetails details) {
